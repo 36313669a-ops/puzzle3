@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>四季北觀心動大挑戰</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background: #f4f4f4;
+    }
+
+    h1 {
+      margin: 15px 0;
+    }
+
+    #menu {
+      padding: 20px;
+    }
+
+    .choice-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      max-width: 400px;
+      margin: auto;
+    }
+
+    .choice {
+      border: 2px solid #ccc;
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: 0.2s;
+      background: white;
+    }
+
+    .choice:hover {
+      transform: scale(1.03);
+      border-color: #333;
+    }
+
+    .choice img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      display: block;
+    }
+
+    #game {
+      display: none;
+      padding: 20px;
+    }
+
+    #timer {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      color: #d80000;
+    }
+
+    /* 左拼圖板 + 右碎片區 */
+    #game-layout {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    #puzzle-board {
+      width: 90vw;
+      max-width: 360px;
+      height: 90vw;
+      max-height: 360px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 3px;
+      background: #333;
+      border-radius: 12px;
+      padding: 5px;
+      touch-action: none;
+    }
+
+    .cell {
+      background: #111;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cell.fixed {
+      border: 2px solid rgba(0,255,0,0.7);
+    }
+
+    .cell.empty {
+      border: 2px dashed rgba(255,255,255,0.5);
+    }
+
+    .piece {
+      width: 100%;
+      height: 100%;
+      background-size: 300% 300%;
+      border-radius: 8px;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .piece:active {
+      cursor: grabbing;
+    }
+
+    /* 右側碎片區 */
+    #pieces-area {
+      width: 220px;
+      max-width: 90vw;
+      background: white;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.15);
+    }
+
+    #pieces-area h3 {
+      margin: 5px 0 10px;
+      font-size: 16px;
+    }
+
+    #pieces-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      min-height: 120px;
+    }
+
+    .floating-piece {
+      width: 95px;
+      height: 95px;
+      border-radius: 10px;
+      border: 2px solid rgba(0,0,0,0.2);
+      background-size: 300% 300%;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .floating-piece:active {
+      cursor: grabbing;
+    }
+
+    /* 手機點選模式提示 */
+    .selected {
+      border: 3px solid red !important;
+    }
+
+    /* 成功對話框 */
+    #success-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 25px;
+      border-radius: 15px;
+      width: 80%;
+      max-width: 360px;
+      text-align: center;
+    }
+
+    .modal-content h2 {
+      margin: 0 0 10px;
+      color: green;
+    }
+
+    .modal-content button {
+      margin-top: 15px;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 10px;
+      background: #007bff;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .modal-content button:hover {
+      background: #0056b3;
+    }
+
+    /* 左下角提示原圖 */
+    #hint-image {
+      display: none;
+      position: fixed;
+      left: 10px;
+      bottom: 10px;
+      width: 150px;
+      height: auto;
+      border-radius: 12px;
+      border: 3px solid white;
+      box-shadow: 0 0 12px rgba(0,0,0,0.4);
+      z-index: 500;
+    }
+
+    @media (max-width: 480px) {
+      .floating-piece {
+        width: 80px;
+        height: 80px;
+      }
+      #hint-image {
+        width: 120px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>🧩 四季北觀心動大挑戰</h1>
+
+  <!-- 選單 -->
+  <div id="menu">
+    <h2>請選擇一款拼圖</h2>
+    <div class="choice-container">
+      <div class="choice" onclick="startGame(0)">
+        <img src="01.jpg" alt="拼圖1">
+      </div>
+      <div class="choice" onclick="startGame(1)">
+        <img src="02.jpg" alt="拼圖2">
+      </div>
+      <div class="choice" onclick="startGame(2)">
+        <img src="03.jpg" alt="拼圖3">
+      </div>
+      <div class="choice" onclick="startGame(3)">
+        <img src="04.jpg" alt="拼圖4">
+      </div>
+    </div>
+  </div>
+
+  <!-- 遊戲畫面 -->
+  <div id="game">
+    <div id="timer">剩餘時間：60 秒</div>
+
+    <div id="game-layout">
+      <div id="puzzle-board"></div>
+
+      <div id="pieces-area">
+        <h3>拼圖碎片區</h3>
+        <p style="font-size:12px; margin:0 0 10px; color:#666;">
+          電腦：拖曳<br>
+          手機：先點碎片，再點格子
+        </p>
+        <div id="pieces-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 左下角提示原圖 -->
+  <img id="hint-image" src="" alt="提示原圖">
+
+  <!-- 成功對話框 -->
+  <div id="success-modal">
+    <div class="modal-content">
+      <h2>🎉 恭喜挑戰成功！</h2>
+      <p>恭喜挑戰成功，請大聲唸出拼圖裡的景點名稱!</p>
+      <button onclick="restartGame()">重來一次</button>
+    </div>
+  </div>
+
+<script>
+  const images = ["01.jpg", "02.jpg", "03.jpg", "04.jpg"];
+
+  let selectedImage = "";
+  let timer = 60;
+  let countdownInterval = null;
+  let firstMove = false;
+  let gameFinished = false;
+
+  let fixedIndexes = new Set();  
+  let remainingIndexes = [];     
+
+  // 被拖曳或被點選的 pieceIndex
+  let draggedPieceIndex = null;
+
+  const menu = document.getElementById("menu");
+  const game = document.getElementById("game");
+  const board = document.getElementById("puzzle-board");
+  const piecesContainer = document.getElementById("pieces-container");
+  const timerText = document.getElementById("timer");
+  const modal = document.getElementById("success-modal");
+  const hintImage = document.getElementById("hint-image");
+
+  function startGame(index) {
+    selectedImage = images[index];
+
+    menu.style.display = "none";
+    game.style.display = "block";
+
+    hintImage.src = selectedImage;
+    hintImage.style.display = "none";
+
+    createPuzzle();
+  }
+
+  function resetTimer() {
+    firstMove = false;
+    gameFinished = false;
+    timer = 60;
+    timerText.textContent = `剩餘時間：${timer} 秒`;
+
+    if (countdownInterval) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+
+    hintImage.style.display = "none";
+  }
+
+  function startTimer() {
+    if (countdownInterval) return;
+
+    countdownInterval = setInterval(() => {
+      if (gameFinished) return;
+
+      timer--;
+      timerText.textContent = `剩餘時間：${timer} 秒`;
+
+      if (timer <= 40 && !gameFinished) {
+        hintImage.style.display = "block";
+      }
+
+      if (timer <= 0) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+
+        alert("時間到！挑戰失敗，請重試！");
+        restartGame();
+      }
+    }, 1000);
+  }
+
+  function createPuzzle() {
+    board.innerHTML = "";
+    piecesContainer.innerHTML = "";
+    fixedIndexes.clear();
+    remainingIndexes = [];
+    draggedPieceIndex = null;
+
+    // 隨機選 5 片固定
+    while (fixedIndexes.size < 5) {
+      fixedIndexes.add(Math.floor(Math.random() * 9));
+    }
+
+    // 剩下 4 片要拼
+    for (let i = 0; i < 9; i++) {
+      if (!fixedIndexes.has(i)) remainingIndexes.push(i);
+    }
+
+    // 建立拼圖板
+    for (let position = 0; position < 9; position++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+      cell.dataset.position = position;
+
+      // cell 可以被 drop
+      cell.addEventListener("dragover", (e) => e.preventDefault());
+      cell.addEventListener("drop", dropToCell);
+
+      // 手機點選放置
+      cell.addEventListener("click", clickDropToCell);
+
+      if (fixedIndexes.has(position)) {
+        cell.classList.add("fixed");
+        const piece = createPieceElement(position, false, true);
+        cell.appendChild(piece);
+      } else {
+        cell.classList.add("empty");
+      }
+
+      board.appendChild(cell);
+    }
+
+    // 右側碎片區：打亂 4 片
+    const shuffledPieces = [...remainingIndexes].sort(() => Math.random() - 0.5);
+    shuffledPieces.forEach(pieceIndex => {
+      piecesContainer.appendChild(createFloatingPiece(pieceIndex));
+    });
+
+    // 右側碎片區也可 drop（拖回來）
+    piecesContainer.addEventListener("dragover", (e) => e.preventDefault());
+    piecesContainer.addEventListener("drop", dropBackToPiecesArea);
+
+    resetTimer();
+  }
+
+  function createPieceElement(pieceIndex, draggable, isFixed=false) {
+    const piece = document.createElement("div");
+    piece.classList.add("piece");
+    piece.dataset.pieceIndex = pieceIndex;
+
+    piece.style.backgroundImage = `url(${selectedImage})`;
+
+    const x = pieceIndex % 3;
+    const y = Math.floor(pieceIndex / 3);
+    piece.style.backgroundPosition = `${x * 50}% ${y * 50}%`;
+
+    if (draggable) {
+      piece.draggable = true;
+
+      piece.addEventListener("dragstart", () => {
+        startFirstMove();
+        draggedPieceIndex = pieceIndex;
+      });
+
+      // 手機點選移動（點格子內拼圖 = 選取）
+      piece.addEventListener("click", (e) => {
+        e.stopPropagation();
+        startFirstMove();
+        selectPiece(pieceIndex);
+      });
+    }
+
+    if (isFixed) {
+      piece.style.cursor = "default";
+    }
+
+    return piece;
+  }
+
+  function createFloatingPiece(pieceIndex) {
+    const div = document.createElement("div");
+    div.classList.add("floating-piece");
+    div.dataset.pieceIndex = pieceIndex;
+
+    div.style.backgroundImage = `url(${selectedImage})`;
+
+    const x = pieceIndex % 3;
+    const y = Math.floor(pieceIndex / 3);
+    div.style.backgroundPosition = `${x * 50}% ${y * 50}%`;
+
+    div.draggable = true;
+
+    div.addEventListener("dragstart", () => {
+      startFirstMove();
+      draggedPieceIndex = pieceIndex;
+    });
+
+    // 手機點選
+    div.addEventListener("click", () => {
+      startFirstMove();
+      selectPiece(pieceIndex);
+    });
+
+    return div;
+  }
+
+  function startFirstMove() {
+    if (!firstMove) {
+      firstMove = true;
+      startTimer();
+    }
+  }
+
+  function clearSelectionUI() {
+    document.querySelectorAll(".floating-piece").forEach(p => p.classList.remove("selected"));
+    document.querySelectorAll(".piece").forEach(p => p.classList.remove("selected"));
+  }
+
+  function selectPiece(pieceIndex) {
+    draggedPieceIndex = pieceIndex;
+    clearSelectionUI();
+
+    const floating = document.querySelector(`.floating-piece[data-piece-index="${pieceIndex}"]`);
+    if (floating) floating.classList.add("selected");
+
+    const placed = document.querySelector(`.piece[data-piece-index="${pieceIndex}"]`);
+    if (placed) placed.classList.add("selected");
+  }
+
+  // ---- 電腦：放到格子 ----
+  function dropToCell(e) {
+    e.preventDefault();
+    if (draggedPieceIndex === null) return;
+
+    const cell = e.currentTarget;
+    const position = parseInt(cell.dataset.position);
+
+    // 固定格不能放
+    if (fixedIndexes.has(position)) return;
+
+    placeOrSwapPiece(cell, position, draggedPieceIndex);
+    draggedPieceIndex = null;
+
+    clearSelectionUI();
+    checkWin();
+  }
+
+  // ---- 手機：點格子放 ----
+  function clickDropToCell(e) {
+    if (draggedPieceIndex === null) return;
+
+    const cell = e.currentTarget;
+    const position = parseInt(cell.dataset.position);
+
+    if (fixedIndexes.has(position)) return;
+
+    placeOrSwapPiece(cell, position, draggedPieceIndex);
+    draggedPieceIndex = null;
+
+    clearSelectionUI();
+    checkWin();
+  }
+
+  // ---- 拖回碎片區 ----
+  function dropBackToPiecesArea(e) {
+    e.preventDefault();
+    if (draggedPieceIndex === null) return;
+
+    movePieceToPiecesArea(draggedPieceIndex);
+    draggedPieceIndex = null;
+
+    clearSelectionUI();
+    checkWin();
+  }
+
+  // ---- 核心：放置或交換 ----
+  function placeOrSwapPiece(cell, position, pieceIndex) {
+    const existingPiece = cell.querySelector(".piece");
+
+    // 如果格子已經有拼圖 -> 交換（把原本的移回碎片區）
+    if (existingPiece) {
+      const oldPieceIndex = parseInt(existingPiece.dataset.pieceIndex);
+      existingPiece.remove();
+      movePieceToPiecesArea(oldPieceIndex);
+    }
+
+    // 如果這片原本在其他格子，要先移除
+    const oldCellPiece = document.querySelector(`.cell .piece[data-piece-index="${pieceIndex}"]`);
+    if (oldCellPiece) {
+      oldCellPiece.remove();
+    }
+
+    // 如果這片在碎片區，移除
+    const floating = document.querySelector(`.floating-piece[data-piece-index="${pieceIndex}"]`);
+    if (floating) floating.remove();
+
+    // 放進目標格子（可再移動，所以 draggable=true）
+    const newPiece = createPieceElement(pieceIndex, true, false);
+    cell.appendChild(newPiece);
+  }
+
+  function movePieceToPiecesArea(pieceIndex) {
+    // 如果碎片區已經有就不重複加
+    if (document.querySelector(`.floating-piece[data-piece-index="${pieceIndex}"]`)) return;
+
+    // 如果在格子裡有，移除
+    const placed = document.querySelector(`.cell .piece[data-piece-index="${pieceIndex}"]`);
+    if (placed) placed.remove();
+
+    piecesContainer.appendChild(createFloatingPiece(pieceIndex));
+  }
+
+  function checkWin() {
+    let correctCount = 0;
+    const cells = document.querySelectorAll(".cell");
+
+    cells.forEach(cell => {
+      const position = parseInt(cell.dataset.position);
+      const piece = cell.querySelector(".piece");
+
+      if (fixedIndexes.has(position)) {
+        correctCount++;
+        return;
+      }
+
+      if (piece) {
+        const pieceIndex = parseInt(piece.dataset.pieceIndex);
+        if (pieceIndex === position) {
+          correctCount++;
+        }
+      }
+    });
+
+    if (correctCount === 9) {
+      gameFinished = true;
+
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+
+      hintImage.style.display = "none";
+      modal.style.display = "flex";
+    }
+  }
+
+  function restartGame() {
+    modal.style.display = "none";
+    game.style.display = "none";
+    menu.style.display = "block";
+
+    resetTimer();
+    board.innerHTML = "";
+    piecesContainer.innerHTML = "";
+  }
+</script>
+
+</body>
+</html>
